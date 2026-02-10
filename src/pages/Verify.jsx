@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import StatusBadge from '../components/StatusBadge';
+import TraceabilityTimeline from '../components/TraceabilityTimeline';
+import Logo from '../components/Logo';
 
 const Verify = () => {
   const { batchId } = useParams();
@@ -29,13 +31,29 @@ const Verify = () => {
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
       {/* Header */}
-      <header className="bg-white shadow-sm p-4 flex items-center sticky top-0 z-10">
-        <button onClick={() => navigate('/')} className="text-gray-600 mr-4">
+      <header className="bg-primary shadow-md p-4 flex items-center justify-between sticky top-0 z-10">
+        <div className="flex items-center">
+          <button 
+            onClick={() => navigate('/dashboard')} 
+            className="text-white mr-4 hover:bg-white/10 p-2 rounded-full transition"
+            title="Back to Dashboard"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+          </button>
+          <Logo size="sm" showText={true} variant="white" />
+        </div>
+        
+        <button 
+          onClick={() => navigate('/')} 
+          className="text-white hover:bg-white/10 p-2 rounded-full transition"
+          title="Go Home"
+        >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
           </svg>
         </button>
-        <h1 className="text-lg font-bold text-gray-800">Product Verification</h1>
       </header>
 
       <div className="p-4 max-w-md mx-auto">
@@ -116,6 +134,12 @@ const Verify = () => {
                   </div>
                 </div>
               </div>
+              
+              {/* Traceability Journey */}
+              <div className="px-6 pb-6 pt-2 border-t border-gray-100">
+                 <TraceabilityTimeline journey={batch.journey} />
+              </div>
+
               <div className="bg-gray-50 px-6 py-3 text-xs text-gray-400 text-center border-t border-gray-100">
                 Last updated: {new Date(batch.lastUpdate).toLocaleString()}
               </div>

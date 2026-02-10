@@ -5,3 +5,87 @@
 body {
     @apply bg-gray-50 text-gray-900 font-sans;
 }
+
+/* QR Scanner Overrides for Visibility */
+#reader {
+    background-color: black !important;
+    border: none !important;
+}
+
+#reader__dashboard_section_csr span, 
+#reader__dashboard_section_swaplink {
+    color: white !important;
+    display: block !important;
+    margin-top: 10px;
+    text-decoration: underline;
+}
+
+#reader__dashboard_section_csr button {
+    background-color: white !important;
+    color: #2E7D32 !important; /* Primary Green */
+    border: none !important;
+    padding: 10px 20px !important;
+    border-radius: 8px !important;
+    font-weight: bold !important;
+    margin-top: 10px !important;
+    cursor: pointer !important;
+}
+
+#reader__camera_permission_button {
+    background-color: #2E7D32 !important;
+    color: white !important;
+}
+
+/* Scanner Animation */
+@keyframes scan {
+    0% { top: 0%; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { top: 100%; opacity: 0; }
+}
+
+.scanner-line {
+    position: absolute;
+    width: 100%;
+    height: 4px;
+    background: #e2e8e2;
+    box-shadow: 0 0 10px #f8f8f8;
+    animation: scan 2s infinite linear;
+    border-radius: 50%;
+}
+
+.scanner-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: 
+        linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 10%, rgba(0,0,0,0) 90%, rgba(0,0,0,0.5) 100%),
+        linear-gradient(to right, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 10%, rgba(0,0,0,0) 90%, rgba(0,0,0,0.5) 100%);
+    z-index: 10;
+}
+
+.scanner-border {
+    position: absolute;
+    inset: 40px;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    border-radius: 12px;
+    box-shadow: 0 0 0 40px rgba(0, 0, 0, 0.5);
+}
+
+/* Add corner markers */
+.scanner-border::before, .scanner-border::after,
+.scanner-border-inner::before, .scanner-border-inner::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border-color: #ecf0ec;
+    border-style: solid;
+    transition: all 0.2s;
+}
+
+.scanner-border::before { top: -2px; left: -2px; border-width: 4px 0 0 4px; }
+.scanner-border::after { top: -2px; right: -2px; border-width: 4px 4px 0 0; }
+.scanner-border-inner { position: absolute; inset: 0; }
+.scanner-border-inner::before { bottom: -2px; left: -2px; border-width: 0 0 4px 4px; }
+.scanner-border-inner::after { bottom: -2px; right: -2px; border-width: 0 4px 4px 0; }

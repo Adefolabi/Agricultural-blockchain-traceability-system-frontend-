@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import StatusBadge from '../components/StatusBadge';
+import Logo from '../components/Logo';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -32,30 +33,38 @@ const Dashboard = () => {
     navigate('/');
   };
 
-  if (loading) return <div className="p-8 text-center">Loading dashboard...</div>;
-
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <span className="text-xl font-bold text-primary">AgriTrace Dashboard</span>
-            </div>
-            <div className="flex items-center">
-              <span className="text-sm text-gray-500 mr-4 hidden sm:block">{user?.name}</span>
-              <button
-                onClick={handleLogout}
-                className="text-sm text-gray-600 hover:text-gray-900 font-medium"
-              >
-                Logout
-              </button>
-            </div>
+      {/* Navbar */}
+      <nav className="bg-primary px-4 py-3">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <button onClick={() => navigate('/')} className="text-white mr-4">
+           <Logo size="sm" variant="white" />
+          </button>
+         
+          <div className="flex items-center space-x-4">
+             {/* Show user name if available, or just skeleton/blank if simple */}
+            <span className="text-sm text-white/80 hidden sm:block">{user?.name}</span>
+            <button
+              onClick={handleLogout}
+              className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition"
+              title="Logout"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3-3l3-3m0 0l-3-3m3 3H9" />
+              </svg>
+            </button>
           </div>
         </div>
       </nav>
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        {loading ? (
+             <div className="flex flex-col items-center justify-center py-20">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                <p className="mt-4 text-gray-500">Loading dashboard...</p>
+             </div>
+        ) : (
         <div className="px-4 py-6 sm:px-0">
           <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
              <div className="bg-white p-5 rounded-lg shadow">
@@ -114,7 +123,8 @@ const Dashboard = () => {
               ))}
             </ul>
           </div>
-        </div>
+          </div>
+        )}
       </main>
     </div>
   );
