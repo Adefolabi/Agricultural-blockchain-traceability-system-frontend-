@@ -8,6 +8,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [user, setUser] = useState(null);
 
   useEffect(() => {
@@ -18,8 +19,8 @@ const Dashboard = () => {
       try {
         const data = await api.getAllBatches();
         setBatches(data);
-      } catch (err) {
-        console.error("Failed to fetch batches");
+      } catch {
+        setError('Failed to load batches. Please refresh to try again.');
       } finally {
         setLoading(false);
       }
@@ -64,6 +65,18 @@ const Dashboard = () => {
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
                 <p className="mt-4 text-gray-500">Loading dashboard...</p>
              </div>
+        ) : error ? (
+          <div className="px-4 py-6 sm:px-0">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+              <p className="text-red-700 font-medium">{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-4 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm font-medium"
+              >
+                Refresh
+              </button>
+            </div>
+          </div>
         ) : (
         <div className="px-4 py-6 sm:px-0">
           <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -92,6 +105,11 @@ const Dashboard = () => {
               </h3>
             </div>
             <ul className="divide-y divide-gray-200">
+              {batches.length === 0 && (
+                <li className="px-4 py-10 text-center text-gray-500 text-sm">
+                  No batches assigned yet.
+                </li>
+              )}
               {batches.map((batch) => (
                 <li key={batch.id}>
                   <div className="px-4 py-4 sm:px-6 hover:bg-gray-50 transition cursor-pointer" onClick={() => navigate(`/verify/${batch.id}`)}>

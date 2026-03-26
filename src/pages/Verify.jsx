@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../services/api';
 import StatusBadge from '../components/StatusBadge';
 import TraceabilityTimeline from '../components/TraceabilityTimeline';
@@ -8,6 +8,7 @@ import Logo from '../components/Logo';
 const Verify = () => {
   const { batchId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [batch, setBatch] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -19,7 +20,7 @@ const Verify = () => {
         const id = batchId.split('/').pop(); 
         const data = await api.getBatch(id);
         setBatch(data);
-      } catch (err) {
+      } catch {
         setError('Batch not found. Please scan a valid agri-trace QR code.');
       } finally {
         setLoading(false);
@@ -33,10 +34,10 @@ const Verify = () => {
       {/* Header */}
       <header className="bg-primary shadow-md p-4 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center">
-          <button 
-            onClick={() => navigate('/dashboard')} 
+          <button
+            onClick={() => location.key !== 'default' ? navigate(-1) : navigate('/')}
             className="text-white mr-4 hover:bg-white/10 p-2 rounded-full transition"
-            title="Back to Dashboard"
+            title="Go Back"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />

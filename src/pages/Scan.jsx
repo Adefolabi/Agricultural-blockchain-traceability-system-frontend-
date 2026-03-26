@@ -18,12 +18,12 @@ const Scan = () => {
     try {
         await api.getBatch(batchId);
         navigate(`/verify/${encodeURIComponent(batchId)}`);
-    } catch (err) {
+    } catch {
         setError(`Invalid QR Code: ${batchId}. This batch was not found in the system.`);
     }
   };
 
-  const handleError = (error) => {};
+  const handleError = () => {};
 
   const handleRetry = () => {
       setError(null);

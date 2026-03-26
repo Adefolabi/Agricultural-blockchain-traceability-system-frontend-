@@ -8,7 +8,6 @@ const TraceabilityTimeline = ({ journey }) => {
       <h3 className="text-lg font-bold text-gray-900 mb-4 px-2">Product Journey</h3>
       <div className="relative border-l-2 border-gray-200 ml-4 space-y-8">
         {journey.map((step, index) => {
-          const isLast = index === journey.length - 1;
           const isRisk = step.status && step.status.toLowerCase() === 'risk';
           
           return (

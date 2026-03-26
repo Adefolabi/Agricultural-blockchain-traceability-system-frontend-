@@ -6,21 +6,21 @@ body {
     @apply bg-gray-50 text-gray-900 font-sans;
 }
 
-/* QR Scanner Overrides for Visibility */
-#reader {
+/* QR Scanner Overrides for Visibility — ID matches QRScanner.jsx readerId */
+#reader-custom-id {
     background-color: black !important;
     border: none !important;
 }
 
-#reader__dashboard_section_csr span, 
-#reader__dashboard_section_swaplink {
+#reader-custom-id__dashboard_section_csr span,
+#reader-custom-id__dashboard_section_swaplink {
     color: white !important;
     display: block !important;
     margin-top: 10px;
     text-decoration: underline;
 }
 
-#reader__dashboard_section_csr button {
+#reader-custom-id__dashboard_section_csr button {
     background-color: white !important;
     color: #2E7D32 !important; /* Primary Green */
     border: none !important;
@@ -31,7 +31,7 @@ body {
     cursor: pointer !important;
 }
 
-#reader__camera_permission_button {
+#reader-custom-id__camera_permission_button {
     background-color: #2E7D32 !important;
     color: white !important;
 }
@@ -89,3 +89,22 @@ body {
 .scanner-border-inner { position: absolute; inset: 0; }
 .scanner-border-inner::before { bottom: -2px; left: -2px; border-width: 0 0 4px 4px; }
 .scanner-border-inner::after { bottom: -2px; right: -2px; border-width: 0 4px 4px 0; }
+
+/* Fade-in animations used in Verify.jsx */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-fade-in-up {
+    animation: fadeInUp 0.35s ease-out forwards;
+}

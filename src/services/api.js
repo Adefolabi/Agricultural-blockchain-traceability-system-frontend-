@@ -77,8 +77,13 @@ export const api = {
    * @returns {Object|null}
    */
   getCurrentUser: () => {
-    const user = localStorage.getItem('agri_user');
-    return user ? JSON.parse(user) : null;
+    try {
+      const user = localStorage.getItem('agri_user');
+      return user ? JSON.parse(user) : null;
+    } catch {
+      localStorage.removeItem('agri_user');
+      return null;
+    }
   },
 
   /**

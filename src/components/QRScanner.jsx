@@ -1,11 +1,24 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 
 const QRScanner = ({ onScan, onError }) => {
   const [scanning, setScanning] = useState(false);
   const [permissionError, setPermissionError] = useState(false);
   const scannerRef = useRef(null);
   const readerId = "reader-custom-id"; // Unique ID to avoid conflicts
+
+  const handleScanSuccess = (decodedText) => {
+    if (scannerRef.current) {
+        scannerRef.current.stop().then(() => {
+            scannerRef.current.clear();
+            setScanning(false);
+            onScan(decodedText);
+        }).catch(err => {
+            console.warn("Stop failed", err);
+            onScan(decodedText);
+        });
+    }
+  };
 
   useEffect(() => {
     // Cleanup function to run before effect or on unmount
@@ -44,7 +57,7 @@ const QRScanner = ({ onScan, onError }) => {
                 (decodedText) => {
                     handleScanSuccess(decodedText);
                 },
-                (errorMessage) => {
+                () => {
                     // Ignore frame errors
                 }
             );
@@ -63,20 +76,8 @@ const QRScanner = ({ onScan, onError }) => {
     return () => {
         cleanup();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const handleScanSuccess = (decodedText) => {
-    if (scannerRef.current) {
-        scannerRef.current.stop().then(() => {
-            scannerRef.current.clear();
-            setScanning(false);
-            onScan(decodedText);
-        }).catch(err => {
-            console.warn("Stop failed", err);
-            onScan(decodedText);
-        });
-    }
-  };
 
   const handleRetry = () => {
      window.location.reload();
