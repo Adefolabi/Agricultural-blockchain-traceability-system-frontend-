@@ -1,109 +1,160 @@
-// Mock API service to simulate backend interactions
+/**
+ * API service — connects to the AgriTrace Express backend.
+ *
+ * Base URL:
+ *   Development  → '' (same origin, forwarded by the Vite dev proxy)
+ *   Production   → VITE_API_URL env var (e.g. https://api.agritrace.com)
+ *
+ * Auth storage:
+ *   agri_token  — raw JWT string
+ *   agri_user   — JSON-stringified user profile { id, name, email, org, role }
+ */
 
-const MOCK_BATCHES = [
-  {
-    id: 'BATCH-001',
-    origin: 'Green Valley Farm, CA',
-    produceType: 'Organic Tomatoes',
-    location: 'Distribution Center, NV',
-    status: 'Safe',
-    lastUpdate: '2023-10-15T10:30:00Z',
-    complianceNotes: 'All safety checks passed.',
-    journey: [
-      { stage: 'Harvesting', location: 'Green Valley Farm, CA', time: '2023-10-10', status: 'Safe' },
-      { stage: 'Processing', location: 'Green Valley Packing, CA', time: '2023-10-12', status: 'Safe' },
-      { stage: 'Logistics', location: 'Transit to NV', time: '2023-10-13', status: 'Safe' },
-      { stage: 'Distribution', location: 'Distribution Center, NV', time: '2023-10-15', status: 'Safe' }
-    ]
-  },
-  {
-    id: 'BATCH-002',
-    origin: 'Sunny Side Orchard, WA',
-    produceType: 'Gala Apples',
-    location: 'Retail Store, OR',
-    status: 'Risk',
-    lastUpdate: '2023-10-10T14:20:00Z',
-    complianceNotes: 'Temperature deviation detected during transit.',
-    journey: [
-      { stage: 'Harvesting', location: 'Sunny Side Orchard, WA', time: '2023-10-05', status: 'Safe' },
-      { stage: 'Processing', location: 'Orchard Packing Unit, WA', time: '2023-10-07', status: 'Safe' },
-      { stage: 'Transport', location: 'I-5 Transit Route', time: '2023-10-09', status: 'Risk' },
-      { stage: 'Retail Stock', location: 'Retail Store, OR', time: '2023-10-10', status: 'Risk' }
-    ]
-  },
-  {
-    id: 'BATCH-003',
-    origin: 'Highland Berries, OR',
-    produceType: 'Blueberries',
-    location: 'Processing Unit, WA',
-    status: 'Safe',
-    lastUpdate: '2023-10-18T09:15:00Z',
-    complianceNotes: 'Quality control verified.',
-    journey: [
-      { stage: 'Harvesting', location: 'Highland Berries, OR', time: '2023-10-17', status: 'Safe' },
-      { stage: 'Processing', location: 'Processing Unit, WA', time: '2023-10-18', status: 'Safe' }
-    ]
+const BASE_URL = import.meta.env.VITE_API_URL ?? '';
+
+// ─── Internal helpers ────────────────────────────────────────────────────────
+
+const getToken = () => localStorage.getItem('agri_token');
+
+/**
+ * Core fetch wrapper. Attaches Authorization header when a token is stored,
+ * sets Content-Type for requests that carry a body, and normalises errors into
+ * thrown Error objects so all callers can use a single try/catch pattern.
+ */
+const request = async (path, options = {}) => {
+  const token = getToken();
+  const headers = {};
+
+  if (options.body) {
+    headers['Content-Type'] = 'application/json';
   }
-];
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  let res;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, {
+      ...options,
+      headers: { ...headers, ...options.headers },
+    });
+  } catch {
+    throw new Error('Unable to reach the server. Check your connection.');
+  }
+
+  // Parse response — backend always returns JSON
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error(`Unexpected response from server (status ${res.status}).`);
+  }
+
+  if (!res.ok) {
+    // Token rejected — clear local auth state so ProtectedRoute redirects
+    if (res.status === 401) {
+      localStorage.removeItem('agri_token');
+      localStorage.removeItem('agri_user');
+    }
+    const err = new Error(data.error || `Request failed with status ${res.status}`);
+    err.status = res.status;
+    err.details = data.details ?? null;
+    throw err;
+  }
+
+  return data;
+};
+
+// ─── Public API ──────────────────────────────────────────────────────────────
 
 export const api = {
   /**
-   * Simulate user login
-   * @param {string} email 
-   * @param {string} password 
-   * @returns {Promise<Object>} User object
+   * Authenticate with email + password.
+   * Stores the returned JWT and user profile in localStorage.
+   * Returns the user profile object on success.
    */
   login: async (email, password) => {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    if (email === 'stakeholder@example.com' && password === 'admin123') {
-      const user = { email, role: 'stakeholder', name: 'Authorized Stakeholder' };
-      localStorage.setItem('agri_user', JSON.stringify(user));
-      return user;
-    }
-    throw new Error('Invalid credentials');
+    const data = await request('/api/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+    localStorage.setItem('agri_token', data.token);
+    localStorage.setItem('agri_user', JSON.stringify(data.user));
+    return data.user;
   },
 
-  /**
-   * Log out the current user
-   */
+  /** Remove stored credentials. */
   logout: () => {
+    localStorage.removeItem('agri_token');
     localStorage.removeItem('agri_user');
   },
 
   /**
-   * Get current authenticated user
-   * @returns {Object|null}
+   * Return the stored user profile, or null if unauthenticated / token expired.
+   * Proactively clears storage when the JWT's exp claim has passed so
+   * ProtectedRoute immediately redirects without waiting for a 401.
    */
   getCurrentUser: () => {
     try {
+      const token = localStorage.getItem('agri_token');
       const user = localStorage.getItem('agri_user');
-      return user ? JSON.parse(user) : null;
+      if (!token || !user) return null;
+
+      // Decode JWT payload (base64url) to check expiry — no signature verify needed here
+      const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      if (payload.exp && payload.exp * 1000 < Date.now()) {
+        localStorage.removeItem('agri_token');
+        localStorage.removeItem('agri_user');
+        return null;
+      }
+
+      return JSON.parse(user);
     } catch {
+      localStorage.removeItem('agri_token');
       localStorage.removeItem('agri_user');
       return null;
     }
   },
 
   /**
-   * Verify a batch by ID
-   * @param {string} batchId 
-   * @returns {Promise<Object>} Batch details
+   * Public provenance lookup — no auth required.
+   * Maps to GET /api/verify/:batchId (VerifyProvenance chaincode).
    */
   getBatch: async (batchId) => {
-    await new Promise(resolve => setTimeout(resolve, 600));
-    const batch = MOCK_BATCHES.find(b => b.id === batchId);
-    if (!batch) throw new Error('Batch not found');
-    return batch;
+    return request(`/api/verify/${encodeURIComponent(batchId)}`);
   },
 
   /**
-   * Get all batches (Stakeholder only)
-   * @returns {Promise<Array>} List of batches
+   * List all batches owned by the authenticated user's org.
+   * Maps to GET /api/batches (QueryBatchesByOwner chaincode).
    */
   getAllBatches: async () => {
-    await new Promise(resolve => setTimeout(resolve, 600));
-    return [...MOCK_BATCHES];
-  }
+    return request('/api/batches');
+  },
+
+  /**
+   * Record an IoT sensor reading against a batch on the ledger.
+   * Maps to POST /api/iot (RecordSensorData chaincode).
+   *
+   * @param {{ batchId, temp, humidity, location, timestamp, gps? }} payload
+   */
+  recordSensorData: async (payload) => {
+    return request('/api/iot', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /**
+   * Transfer custody of a batch to a new owner org.
+   * Maps to POST /api/transfer (TransferCustody chaincode).
+   *
+   * @param {{ batchId, newOwnerOrg, location, stage }} payload
+   */
+  transferCustody: async (payload) => {
+    return request('/api/transfer', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
 };

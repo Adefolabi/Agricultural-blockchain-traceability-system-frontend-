@@ -6,6 +6,13 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
   globalIgnores(['dist']),
+  // Node.js globals for config files (vite.config.js, postcss.config.js, etc.)
+  {
+    files: ['*.config.js'],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
   {
     files: ['**/*.{js,jsx}'],
     extends: [
