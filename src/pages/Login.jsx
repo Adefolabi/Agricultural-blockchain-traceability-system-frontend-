@@ -22,7 +22,7 @@ const Login = () => {
       await api.login(email, password);
       navigate('/dashboard');
     } catch {
-      setError('Invalid email or password. Try stakeholder@example.com / admin123');
+      setError('Invalid email or password.');
     } finally {
       setLoading(false);
     }
@@ -94,8 +94,11 @@ const Login = () => {
               </button>
             </div>
             
-            <div className="text-center mt-2 text-xs text-gray-500">
-               Demo: stakeholder@example.com / admin123
+            <div className="mt-2 p-3 bg-gray-50 rounded-md text-xs text-gray-500 space-y-1">
+              <p className="font-semibold text-gray-600">Demo accounts:</p>
+              <p>farmer@agri.com / farmer123</p>
+              <p>distributor@agri.com / distributor123</p>
+              <p>retailer@agri.com / retailer123</p>
             </div>
           </form>
           

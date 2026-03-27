@@ -133,6 +133,20 @@ export const api = {
   },
 
   /**
+   * Register a new produce batch on the ledger.
+   * Maps to POST /api/batches (CreateBatch chaincode).
+   * NOTE: requires a matching POST /api/batches endpoint on the backend.
+   *
+   * @param {{ produceType: string, origin: string, location: string, notes?: string }} payload
+   */
+  createBatch: async (payload) => {
+    return request('/api/batches', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /**
    * Record an IoT sensor reading against a batch on the ledger.
    * Maps to POST /api/iot (RecordSensorData chaincode).
    *
