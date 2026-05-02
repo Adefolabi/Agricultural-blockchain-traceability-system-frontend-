@@ -1,104 +1,268 @@
-// Mock API service to simulate backend interactions
+// Real API service — connects to the Node.js/Express backend.
+// In development the Vite proxy forwards /api/* to localhost:3000, so BASE is empty.
+// In production (Vercel) set VITE_API_BASE_URL to the backend's public URL so that
+// fetch calls resolve to the correct host instead of the Vercel domain.
+// All authenticated requests attach the JWT stored in localStorage.
+// Data returned by the backend is normalised here into the shape used by UI
+// components so that any future backend shape changes only need to be fixed once.
 
-const MOCK_BATCHES = [
-  {
-    id: 'BATCH-001',
-    origin: 'Green Valley Farm, CA',
-    produceType: 'Organic Tomatoes',
-    location: 'Distribution Center, NV',
-    status: 'Safe',
-    lastUpdate: '2023-10-15T10:30:00Z',
-    complianceNotes: 'All safety checks passed.',
-    journey: [
-      { stage: 'Harvesting', location: 'Green Valley Farm, CA', time: '2023-10-10', status: 'Safe' },
-      { stage: 'Processing', location: 'Green Valley Packing, CA', time: '2023-10-12', status: 'Safe' },
-      { stage: 'Logistics', location: 'Transit to NV', time: '2023-10-13', status: 'Safe' },
-      { stage: 'Distribution', location: 'Distribution Center, NV', time: '2023-10-15', status: 'Safe' }
-    ]
-  },
-  {
-    id: 'BATCH-002',
-    origin: 'Sunny Side Orchard, WA',
-    produceType: 'Gala Apples',
-    location: 'Retail Store, OR',
-    status: 'Risk',
-    lastUpdate: '2023-10-10T14:20:00Z',
-    complianceNotes: 'Temperature deviation detected during transit.',
-    journey: [
-      { stage: 'Harvesting', location: 'Sunny Side Orchard, WA', time: '2023-10-05', status: 'Safe' },
-      { stage: 'Processing', location: 'Orchard Packing Unit, WA', time: '2023-10-07', status: 'Safe' },
-      { stage: 'Transport', location: 'I-5 Transit Route', time: '2023-10-09', status: 'Risk' },
-      { stage: 'Retail Stock', location: 'Retail Store, OR', time: '2023-10-10', status: 'Risk' }
-    ]
-  },
-  {
-    id: 'BATCH-003',
-    origin: 'Highland Berries, OR',
-    produceType: 'Blueberries',
-    location: 'Processing Unit, WA',
-    status: 'Safe',
-    lastUpdate: '2023-10-18T09:15:00Z',
-    complianceNotes: 'Quality control verified.',
-    journey: [
-      { stage: 'Harvesting', location: 'Highland Berries, OR', time: '2023-10-17', status: 'Safe' },
-      { stage: 'Processing', location: 'Processing Unit, WA', time: '2023-10-18', status: 'Safe' }
-    ]
+// Empty string in dev → relative paths handled by Vite proxy.
+// Full URL in prod  → e.g. "https://agritrace-api.onrender.com"
+const BASE = import.meta.env.VITE_API_BASE_URL ?? '';
+
+const TOKEN_KEY = 'agri_token';
+const USER_KEY  = 'agri_user';
+
+// ---------------------------------------------------------------------------
+// Data normalisers
+// ---------------------------------------------------------------------------
+
+/**
+ * Normalise a provenance object returned by GET /api/verify/:batchId.
+ * Backend shape: { batchId, product, farm, location, compliant, lastUpdated, journey[] }
+ */
+function normaliseProvenance(p) {
+  return {
+    id:          p.batchId,
+    batchId:     p.batchId,
+    produceType: p.product,
+    origin:      p.farm,
+    location:    p.location,
+    status:      p.compliant ? 'compliant' : 'risk',
+    lastUpdate:  p.lastUpdated || null,
+    journey:     Array.isArray(p.journey) ? p.journey : [],
+  };
+}
+
+/**
+ * Normalise a dashboard batch item returned by GET /api/batches.
+ * Backend shape: { id, variety, farmId, quantity, status, stage, location,
+ *                  owner, updatedAt, availableActions[] }
+ */
+function normaliseBatchSummary(b) {
+  return {
+    id:               b.id,
+    batchId:          b.id,
+    produceType:      b.variety,
+    origin:           b.farmId,
+    location:         b.location,
+    status:           b.status,
+    stage:            b.stage,
+    quantity:         b.quantity,
+    owner:            b.owner,
+    lastUpdate:       b.updatedAt || null,
+    availableActions: Array.isArray(b.availableActions) ? b.availableActions : [],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Error sanitiser
+// ---------------------------------------------------------------------------
+
+// Translate raw backend/infrastructure errors into user-friendly messages.
+// Raw Node.js / Fabric errors should never reach end users.
+function sanitiseError(message) {
+  if (!message) return 'An unexpected error occurred. Please try again.';
+
+  // Hyperledger Fabric peer / TLS not reachable or misconfigured
+  if (
+    message.includes('ENOENT') ||
+    message.includes('.crt') ||
+    message.includes('.pem') ||
+    message.includes('ca.crt') ||
+    message.includes('tls/') ||
+    message.includes('peers/')
+  ) {
+    return 'Blockchain network is currently unavailable. Please ensure the Fabric network is running and try again.';
   }
-];
+
+  // gRPC / network-level failures
+  if (
+    message.includes('ECONNREFUSED') ||
+    message.includes('ENOTFOUND') ||
+    message.includes('ETIMEDOUT') ||
+    message.includes('connect EHOSTUNREACH') ||
+    message.includes('connect ECONNRESET')
+  ) {
+    return 'Unable to reach the blockchain network. Please check your connection and try again.';
+  }
+
+  return message;
+}
+
+// ---------------------------------------------------------------------------
+// Low-level fetch wrapper
+// ---------------------------------------------------------------------------
+
+/**
+ * Make an authenticated (or public) HTTP request through the Vite /api proxy.
+ * Throws a descriptive Error on non-2xx responses.
+ * Automatically clears the stored session and redirects to /login on 401.
+ */
+async function request(path, options = {}) {
+  const token = localStorage.getItem(TOKEN_KEY);
+
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {}),
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${BASE}${path}`, { ...options, headers });
+
+  // Parse the response body even on error so we can surface the server message.
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    data = {};
+  }
+
+  if (res.status === 401) {
+    // Token expired or invalid — clear local session and bounce to login.
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    window.location.href = '/login';
+    throw new Error('Session expired. Please log in again.');
+  }
+
+  if (!res.ok) {
+    const raw =
+      data?.details?.[0]?.message ||
+      data?.error ||
+      data?.message ||
+      `Request failed (HTTP ${res.status})`;
+    throw new Error(sanitiseError(raw));
+  }
+
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// Public API surface
+// ---------------------------------------------------------------------------
 
 export const api = {
+  // ── Authentication ─────────────────────────────────────────────────────────
+
   /**
-   * Simulate user login
-   * @param {string} email 
-   * @param {string} password 
-   * @returns {Promise<Object>} User object
+   * Authenticate against POST /api/login.
+   * Stores the JWT and user object in localStorage on success.
    */
   login: async (email, password) => {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    if (email === 'stakeholder@example.com' && password === 'admin123') {
-      const user = { email, role: 'stakeholder', name: 'Authorized Stakeholder' };
-      localStorage.setItem('agri_user', JSON.stringify(user));
-      return user;
+    const data = await request('/api/login', {
+      method: 'POST',
+      body:   JSON.stringify({ email, password }),
+    });
+
+    // Guard against backends that use a different key name for the token
+    const token = data.token ?? data.accessToken ?? data.jwt ?? data.access_token;
+    if (!token || typeof token !== 'string') {
+      throw new Error('Login succeeded but no token was returned. Check the backend response.');
     }
-    throw new Error('Invalid credentials');
+    if (!data.user || typeof data.user !== 'object') {
+      throw new Error('Login succeeded but no user object was returned. Check the backend response.');
+    }
+
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(USER_KEY,  JSON.stringify(data.user));
+    return data.user;
   },
 
-  /**
-   * Log out the current user
-   */
+  /** Clear local session. */
   logout: () => {
-    localStorage.removeItem('agri_user');
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
   },
 
-  /**
-   * Get current authenticated user
-   * @returns {Object|null}
-   */
+  /** Return the currently stored user object, or null if not logged in. */
   getCurrentUser: () => {
-    const user = localStorage.getItem('agri_user');
-    return user ? JSON.parse(user) : null;
+    const raw = localStorage.getItem(USER_KEY);
+    if (!raw || raw === 'undefined' || raw === 'null') return null;
+    try { return JSON.parse(raw); } catch { return null; }
   },
 
+  /** Return the stored JWT string, or null. */
+  getToken: () => {
+    const t = localStorage.getItem(TOKEN_KEY);
+    // Treat the literal strings "undefined"/"null" as missing (can be stored by JS coercion)
+    return (t && t !== 'undefined' && t !== 'null') ? t : null;
+  },
+
+  // ── Public verification (no auth required) ─────────────────────────────────
+
   /**
-   * Verify a batch by ID
-   * @param {string} batchId 
-   * @returns {Promise<Object>} Batch details
+   * Fetch provenance for a single batch — calls the public
+   * GET /api/verify/:batchId endpoint.
    */
   getBatch: async (batchId) => {
-    await new Promise(resolve => setTimeout(resolve, 600));
-    const batch = MOCK_BATCHES.find(b => b.id === batchId);
-    if (!batch) throw new Error('Batch not found');
-    return batch;
+    const data = await request(`/api/verify/${encodeURIComponent(batchId)}`);
+    if (data?.error) throw new Error(sanitiseError(data.error));
+    return normaliseProvenance(data);
+  },
+
+  // ── Stakeholder endpoints (JWT required) ───────────────────────────────────
+
+  /**
+   * Fetch all batches owned by the authenticated user's organisation.
+   * GET /api/batches
+   */
+  getAllBatches: async () => {
+    const data = await request('/api/batches');
+
+    // Unwrap common envelope shapes: bare array, { batches }, { data }
+    const arr = Array.isArray(data)          ? data
+              : Array.isArray(data?.batches) ? data.batches
+              : Array.isArray(data?.data)    ? data.data
+              : [];
+
+    // Surface a soft-error returned with HTTP 200 (e.g. { error: "..." })
+    if (arr.length === 0 && data?.error) {
+      throw new Error(sanitiseError(data.error));
+    }
+
+    return arr.map(normaliseBatchSummary);
   },
 
   /**
-   * Get all batches (Stakeholder only)
-   * @returns {Promise<Array>} List of batches
+   * Create a new produce batch on the ledger (farmer only).
+   * POST /api/batches  { batchId, farmId, variety, quantity }
    */
-  getAllBatches: async () => {
-    await new Promise(resolve => setTimeout(resolve, 600));
-    return [...MOCK_BATCHES];
-  }
+  createBatch: async ({ batchId, farmId, variety, quantity }) => {
+    const data = await request('/api/batches', {
+      method: 'POST',
+      body:   JSON.stringify({ batchId, farmId, variety, quantity }),
+    });
+    return data;
+  },
+
+  /**
+   * Transfer custody of a batch to a new organisation.
+   * POST /api/transfer  { batchId, newOwnerOrg, location, stage }
+   */
+  transferCustody: async ({ batchId, newOwnerOrg, location, stage }) => {
+    const data = await request('/api/transfer', {
+      method: 'POST',
+      body:   JSON.stringify({ batchId, newOwnerOrg, location, stage }),
+    });
+    return data;
+  },
+
+  /**
+   * Record IoT sensor data for a batch in transit (transporter only).
+   * POST /api/iot  { batchId, temp, humidity, gps?, location, timestamp }
+   * timestamp must be ISO-8601 with explicit timezone for deterministic hashing.
+   */
+  recordSensor: async ({ batchId, temp, humidity, gps, location, timestamp }) => {
+    const payload = { batchId, temp, humidity, location, timestamp };
+    if (gps) payload.gps = gps;
+    const data = await request('/api/iot', {
+      method: 'POST',
+      body:   JSON.stringify(payload),
+    });
+    return data; // { sensorDataHash, batch }
+  },
 };
