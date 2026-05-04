@@ -1,37 +1,41 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import QRScanner from '../components/QRScanner';
 import Logo from '../components/Logo';
 
-/**
- * Scan — consumer-facing QR code scanner.
- *
- * Decodes the QR text, extracts the batch ID, and navigates directly to the
- * Verify page.  The Verify page owns the API call so we avoid a double fetch.
- *
- * Supported QR formats:
- *   1. Full URL:   https://example.com/verify/BATCH-001  → extract path segment
- *   2. Bare ID:    BATCH-001                             → use as-is
- */
 const Scan = () => {
   const navigate = useNavigate();
-  const [error, setError] = useState(null);
-  const [key,   setKey]   = useState(0);
+  const [error,        setError]        = useState(null);
+  const [key,          setKey]          = useState(0);
+  const [manualId,     setManualId]     = useState('');
+  const [manualError,  setManualError]  = useState('');
+
+  const resolveBatchId = (raw) => {
+    let id = raw.trim();
+    if (id.includes('/verify/')) {
+      id = id.split('/verify/').pop().split('?')[0];
+    }
+    // URL-decode in case the QR encodes %XX sequences
+    try { id = decodeURIComponent(id); } catch { /* leave as-is */ }
+    return id;
+  };
 
   const handleScan = (decodedText) => {
-    let batchId = decodedText.trim();
-
-    // Extract ID from a full verification URL
-    if (batchId.includes('/verify/')) {
-      batchId = batchId.split('/verify/').pop().split('?')[0];
-    }
-
-    // Reject obviously invalid strings before navigating
+    const batchId = resolveBatchId(decodedText);
     if (!batchId || !/^[\w-]{1,100}$/.test(batchId)) {
-      setError(`Invalid QR code content: "${decodedText}". Expected a batch ID.`);
+      setError(`Invalid QR code: "${decodedText}". Expected a batch ID.`);
       return;
     }
+    navigate(`/verify/${encodeURIComponent(batchId)}`);
+  };
 
+  const handleManualSubmit = (e) => {
+    e.preventDefault();
+    const batchId = resolveBatchId(manualId);
+    if (!batchId || !/^[\w-]{1,100}$/.test(batchId)) {
+      setManualError('Enter a valid batch ID (letters, numbers, hyphens, underscores).');
+      return;
+    }
     navigate(`/verify/${encodeURIComponent(batchId)}`);
   };
 
@@ -55,13 +59,14 @@ const Scan = () => {
         <Logo size="sm" showText={true} variant="white" />
       </header>
 
-      <div className="flex-1 flex flex-col items-center justify-center p-4">
-        <div className="relative w-full max-w-md">
+      <div className="flex-1 flex flex-col items-center justify-center p-4 gap-6">
+        {/* ── Camera scanner ─────────────────────────────────── */}
+        <div className="w-full max-w-md">
           {!error ? (
             <QRScanner key={key} onScan={handleScan} />
           ) : (
             <div className="bg-white rounded-xl shadow-lg border-2 border-red-100 p-8 text-center">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4 mx-auto animate-bounce">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                 <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M6 18L18 6M6 6l12 12" />
@@ -76,6 +81,31 @@ const Scan = () => {
                 Scan Again
               </button>
             </div>
+          )}
+        </div>
+
+        {/* ── Manual entry fallback ───────────────────────────── */}
+        <div className="w-full max-w-md bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+            Or enter a Batch ID manually
+          </p>
+          <form onSubmit={handleManualSubmit} className="flex gap-2">
+            <input
+              type="text"
+              value={manualId}
+              onChange={(e) => { setManualId(e.target.value); setManualError(''); }}
+              placeholder="e.g. TOMATO_1 or paste full URL"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono focus:outline-none focus:ring-primary focus:border-primary"
+            />
+            <button
+              type="submit"
+              className="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-md hover:bg-green-800 transition"
+            >
+              Verify
+            </button>
+          </form>
+          {manualError && (
+            <p className="mt-2 text-xs text-red-600">{manualError}</p>
           )}
         </div>
       </div>
