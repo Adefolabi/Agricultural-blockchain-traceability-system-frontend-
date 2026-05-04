@@ -6,14 +6,18 @@ import { api } from '../services/api';
  *
  * Props:
  *   children     — component to render when access is granted
- *   requiredRole — (optional) if supplied, the user's role must match exactly.
- *                  If it doesn't, the user is redirected to /dashboard with a
- *                  message rather than to /login (they are authenticated, just
- *                  not authorised for this specific route).
+ *   requiredRole — optional. A single role string OR an array of allowed role
+ *                  strings. When supplied, the authenticated user's role must
+ *                  be in the list. If it isn't, they are redirected to
+ *                  /dashboard (authenticated but not authorised for this route).
  *
- * Token presence is checked from localStorage.  Expiry is enforced by the
- * backend — a 401 response in api.js clears the session and redirects to
- * /login automatically.
+ * Examples:
+ *   <ProtectedRoute>                                        any authenticated user
+ *   <ProtectedRoute requiredRole="farmer">                  farmer only
+ *   <ProtectedRoute requiredRole={['farmer','processor','transporter']}>
+ *
+ * Token expiry is enforced by the backend — a 401 response in api.js clears
+ * the session and redirects to /login automatically.
  */
 const ProtectedRoute = ({ children, requiredRole }) => {
   const user  = api.getCurrentUser();
@@ -24,8 +28,13 @@ const ProtectedRoute = ({ children, requiredRole }) => {
     return <Navigate to="/login" replace />;
   }
 
-  // Logged in but wrong role → bounce back to dashboard
-  if (requiredRole && user.role !== requiredRole) {
+  // Normalise requiredRole to an array for uniform comparison
+  const allowedRoles = requiredRole
+    ? (Array.isArray(requiredRole) ? requiredRole : [requiredRole])
+    : null;
+
+  // Logged in but role not in the allowed list → bounce back to dashboard
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
     return <Navigate to="/dashboard" replace />;
   }
 

@@ -39,7 +39,7 @@ function App() {
         <Route
           path="/transfer/:batchId?"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole={['farmer', 'processor', 'transporter']}>
               <TransferCustody />
             </ProtectedRoute>
           }

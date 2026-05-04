@@ -22,11 +22,13 @@ const ORG_OPTIONS = [
   { value: 'Org2MSP', label: 'Org2MSP  (Processor / Transporter accounts)' },
 ];
 
+// Supply chain stages aligned with Section 3.7 process model.
+// "Farm" is the initial stage set at batch creation and is not a transfer target.
 const STAGE_OPTIONS = [
-  'Processing',
-  'Transport',
-  'Distribution',
-  'Retail',
+  { value: 'Processing',   label: 'Processing   — batch handed to processor' },
+  { value: 'Distribution', label: 'Distribution — batch entering distribution network' },
+  { value: 'Transport',    label: 'Transport    — batch in transit to next actor' },
+  { value: 'Retail',       label: 'Retail       — batch received by retailer' },
 ];
 
 const TransferCustody = () => {
@@ -168,7 +170,7 @@ const TransferCustody = () => {
               >
                 <option value="">— Select stage —</option>
                 {STAGE_OPTIONS.map(s => (
-                  <option key={s} value={s}>{s}</option>
+                  <option key={s.value} value={s.value}>{s.label}</option>
                 ))}
               </select>
             </div>
