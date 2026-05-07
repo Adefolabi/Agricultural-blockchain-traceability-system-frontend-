@@ -17,7 +17,10 @@
       // Only register the service worker in production.
       // In development the SW caches Vite's module files and serves stale
       // versions on reload, causing a blank white page.
-      const isDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      const isDev = location.hostname === 'localhost'
+                 || location.hostname === '127.0.0.1'
+                 || location.hostname.endsWith('.ngrok-free.app')
+                 || location.hostname.endsWith('.ngrok.io');
       if ('serviceWorker' in navigator && !isDev) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js')
