@@ -14,23 +14,31 @@
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
     <script>
-      // Only register the service worker in production.
-      // In development the SW caches Vite's module files and serves stale
-      // versions on reload, causing a blank white page.
-      const isDev = location.hostname === 'localhost'
-                 || location.hostname === '127.0.0.1'
-                 || location.hostname.endsWith('.ngrok-free.app')
-                 || location.hostname.endsWith('.ngrok.io');
-      if ('serviceWorker' in navigator && !isDev) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then(registration => {
-              console.log('SW registered: ', registration);
-            })
-            .catch(registrationError => {
-              console.log('SW registration failed: ', registrationError);
-            });
-        });
+      // Service worker is only useful in true production deployments.
+      // On localhost and all ngrok tunnel hostnames we unregister any existing
+      // SW (to clear stale caches) and skip registration entirely — the Vite
+      // proxy handles /api forwarding in dev, and the SW interferes with HMR.
+      const h = location.hostname;
+      const isDev = h === 'localhost'
+                 || h === '127.0.0.1'
+                 || h.endsWith('.ngrok-free.app')
+                 || h.endsWith('.ngrok.io')
+                 || h.endsWith('.ngrok.app');
+
+      if ('serviceWorker' in navigator) {
+        if (isDev) {
+          // Tear down any previously registered SW so it can no longer
+          // intercept requests and serve stale responses.
+          navigator.serviceWorker.getRegistrations().then(regs => {
+            regs.forEach(r => r.unregister());
+          });
+        } else {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+              .then(r  => console.log('SW registered:', r.scope))
+              .catch(e => console.warn('SW registration failed:', e));
+          });
+        }
       }
     </script>
   </body>
