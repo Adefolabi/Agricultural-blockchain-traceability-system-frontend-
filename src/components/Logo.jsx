@@ -1,6 +1,14 @@
 import React from 'react';
 
-const Logo = ({ size = 'md', variant = 'default' }) => {
+/**
+ * Logo component.
+ *
+ * Props:
+ *   size      — 'sm' | 'md' | 'lg'  (default: 'md')
+ *   variant   — 'default' | 'white' controls text colour
+ *   showText  — boolean, whether to render the "AgriTrace" label (default: true)
+ */
+const Logo = ({ size = 'md', variant = 'default', showText = true }) => {
   const sizes = {
     sm: { img: 'w-8 h-8', text: 'text-base' },
     md: { img: 'w-10 h-10', text: 'text-lg' },
@@ -13,7 +21,9 @@ const Logo = ({ size = 'md', variant = 'default' }) => {
   return (
     <div className="flex items-center">
       <img src="/icon.svg" alt="AgriTrace" className={s.img} />
-      <span className={`${s.text} font-bold ${textColor} ml-2`}>AgriTrace</span>
+      {showText && (
+        <span className={`${s.text} font-bold ${textColor} ml-2`}>AgriTrace</span>
+      )}
     </div>
   );
 };

@@ -16,10 +16,12 @@ import Logo from '../components/Logo';
  *   stage       — next supply chain stage
  */
 
-// Fabric MSP IDs available in the prototype network
+// Fabric MSP IDs available in the prototype network.
+// Select "Other" to type a custom MSP ID for networks with different org names.
 const ORG_OPTIONS = [
   { value: 'Org1MSP', label: 'Org1MSP  (Farmer / Retailer accounts)' },
   { value: 'Org2MSP', label: 'Org2MSP  (Processor / Transporter accounts)' },
+  { value: '__custom__', label: 'Other — enter MSP ID manually' },
 ];
 
 // Supply chain stages aligned with Section 3.7 process model.
@@ -41,9 +43,10 @@ const TransferCustody = () => {
     location:    '',
     stage:       '',
   });
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState(null);
-  const [success, setSuccess] = useState(null);
+  const [customOrg, setCustomOrg] = useState('');
+  const [loading,   setLoading]   = useState(false);
+  const [error,     setError]     = useState(null);
+  const [success,   setSuccess]   = useState(null);
 
   const handleChange = (e) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -56,15 +59,23 @@ const TransferCustody = () => {
     setError(null);
     setSuccess(null);
 
+    const resolvedOrg = form.newOwnerOrg === '__custom__' ? customOrg.trim() : form.newOwnerOrg;
+
+    if (!resolvedOrg) {
+      setError('Please specify a receiving organisation MSP ID.');
+      setLoading(false);
+      return;
+    }
+
     try {
       await api.transferCustody({
         batchId:     form.batchId.trim(),
-        newOwnerOrg: form.newOwnerOrg,
+        newOwnerOrg: resolvedOrg,
         location:    form.location.trim(),
         stage:       form.stage,
       });
 
-      setSuccess(`Custody of batch "${form.batchId}" transferred to ${form.newOwnerOrg} at ${form.location}.`);
+      setSuccess(`Custody of batch "${form.batchId}" transferred to ${resolvedOrg} at ${form.location}.`);
       setTimeout(() => navigate('/dashboard'), 1500);
     } catch (err) {
       setError(err.message || 'Transfer failed.');
@@ -135,6 +146,15 @@ const TransferCustody = () => {
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
+              {form.newOwnerOrg === '__custom__' && (
+                <input
+                  type="text"
+                  value={customOrg}
+                  onChange={(e) => { setCustomOrg(e.target.value); setError(null); }}
+                  placeholder="e.g. Org3MSP"
+                  className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-mono focus:outline-none focus:ring-primary focus:border-primary"
+                />
+              )}
               <p className="mt-1 text-xs text-gray-400">
                 The MSP ID must match an organisation enrolled in the Fabric network.
               </p>

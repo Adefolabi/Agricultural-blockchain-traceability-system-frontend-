@@ -79,7 +79,6 @@ const RecordSensor = () => {
         compliant,
         batchStatus: data.batch?.status,
       });
-      setTimeout(() => navigate('/dashboard'), 3000);
     } catch (err) {
       setError(err.message || 'Failed to record sensor data.');
     } finally {
@@ -270,13 +269,6 @@ const RecordSensor = () => {
                   This hash is anchored on-chain. Any party can recompute it from the original
                   sensor values to verify data integrity.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => navigate('/dashboard')}
-                  className="mt-3 text-xs underline opacity-75 hover:opacity-100"
-                >
-                  Back to Dashboard
-                </button>
               </div>
             )}
 

@@ -10,6 +10,11 @@
 // Full URL in prod  → e.g. "https://agritrace-api.onrender.com"
 const BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 
+// SECURITY NOTE: Storing JWTs in localStorage is convenient for a prototype
+// but is susceptible to XSS attacks — any injected script can read them.
+// For production, prefer HttpOnly cookies (set by the server) which are
+// inaccessible to JavaScript entirely. Mitigate XSS risk here by keeping
+// a strict Content-Security-Policy on the server response headers.
 const TOKEN_KEY = 'agri_token';
 const USER_KEY  = 'agri_user';
 

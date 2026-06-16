@@ -149,7 +149,7 @@ const TraceabilityTimeline = ({ journey }) => {
                     {event.details.humidity  !== undefined && (
                       <p className="text-gray-600">
                         Humidity:{' '}
-                        <strong className={event.details.humidity > 90 ? 'text-red-600' : 'text-green-700'}>
+                        <strong className={event.details.humidity < 0 || event.details.humidity > 90 ? 'text-red-600' : 'text-green-700'}>
                           {event.details.humidity}%
                         </strong>
                       </p>
@@ -165,19 +165,21 @@ const TraceabilityTimeline = ({ journey }) => {
                   </div>
                 )}
 
-                {/* Compliance pill */}
-                <div className="mt-2">
-                  <span
-                    className={`
-                      text-xs font-semibold px-2 py-0.5 rounded
-                      ${isRisk
-                        ? 'bg-red-100 text-red-700'
-                        : 'bg-green-100 text-green-700'}
-                    `}
-                  >
-                    {isRisk ? 'Threshold Breached' : 'Compliant'}
-                  </span>
-                </div>
+                {/* Compliance pill — only meaningful for sensor readings */}
+                {event.action === 'SENSOR_READING' && (
+                  <div className="mt-2">
+                    <span
+                      className={`
+                        text-xs font-semibold px-2 py-0.5 rounded
+                        ${isRisk
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-green-100 text-green-700'}
+                      `}
+                    >
+                      {isRisk ? 'Threshold Breached' : 'Compliant'}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           );
