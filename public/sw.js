@@ -1,4 +1,4 @@
-const CACHE_NAME = 'agri-trace-v4';
+const CACHE_NAME = 'agri-trace-v5';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
@@ -7,7 +7,15 @@ const PRECACHE_URLS = [
 ];
 
 function isApiRequest(url) {
-  return new URL(url).pathname.startsWith('/api/');
+  const parsed = new URL(url);
+  // Only intercept same-origin /api/* requests (the pattern used when the
+  // backend is proxied through the same host, e.g. via a Vite dev proxy or a
+  // reverse-proxy in production).  Cross-origin requests — e.g. when
+  // VITE_API_BASE_URL points to a separate backend domain like DigitalOcean —
+  // must NOT be intercepted here: the SW's re-fetch runs in a different CORS
+  // context and will fail, producing the misleading "Backend unreachable" error
+  // even when the backend is perfectly healthy.
+  return parsed.origin === self.location.origin && parsed.pathname.startsWith('/api/');
 }
 
 // Return a JSON error response so event.respondWith never receives a rejection.
