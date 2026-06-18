@@ -1,4 +1,4 @@
-const CACHE_NAME = 'agri-trace-v5';
+const CACHE_NAME = 'agri-trace-v6';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
@@ -55,21 +55,4 @@ self.addEventListener('fetch', event => {
   }
 
   // All other requests — cache-first, network fallback.
-  event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-
-      return fetch(event.request)
-        .then(response => {
-          // Only cache successful same-origin responses.
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
-          }
-          const toCache = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, toCache));
-          return response;
-        })
-        .catch(() => networkError(503, 'Network request failed.'));
-    })
-  );
-});
+  // IMPORTANT: d
