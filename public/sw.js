@@ -1,24 +1,41 @@
-const CACHE_NAME = 'agri-trace-v6';
+const CACHE_NAME = 'agri-trace-v7';
+
+// Only precache stable assets that never change between deploys.
+// '/' and '/index.html' are deliberately excluded — they reference
+// content-hashed JS/CSS filenames that change with every build.
+// Caching them with a cache-first strategy causes stale index.html to be
+// served after a new deployment; when the browser then requests the old
+// hashed bundle (which no longer exists), Vercel's SPA rewrite serves
+// index.html with MIME type text/html — which the browser refuses to
+// execute as a JavaScript module, producing a blank page.
 const PRECACHE_URLS = [
-  '/',
-  '/index.html',
   '/manifest.json',
   '/icon.svg',
 ];
 
+// Only handle http/https — ignore chrome-extension://, data:, etc.
+function isHttpRequest(url) {
+  return url.startsWith('http://') || url.startsWith('https://');
+}
+
+// Same-origin /api/* requests when using a same-host proxy.
+// Cross-origin requests (e.g. DigitalOcean backend) are NOT intercepted.
 function isApiRequest(url) {
   const parsed = new URL(url);
-  // Only intercept same-origin /api/* requests (the pattern used when the
-  // backend is proxied through the same host, e.g. via a Vite dev proxy or a
-  // reverse-proxy in production).  Cross-origin requests — e.g. when
-  // VITE_API_BASE_URL points to a separate backend domain like DigitalOcean —
-  // must NOT be intercepted here: the SW's re-fetch runs in a different CORS
-  // context and will fail, producing the misleading "Backend unreachable" error
-  // even when the backend is perfectly healthy.
   return parsed.origin === self.location.origin && parsed.pathname.startsWith('/api/');
 }
 
-// Return a JSON error response so event.respondWith never receives a rejection.
+// Navigation requests are full-page HTML loads.
+function isNavigationRequest(request) {
+  return request.mode === 'navigate';
+}
+
+// Vite writes content-hashed filenames like /assets/index-abc123.js —
+// these are immutable and safe to serve from cache indefinitely.
+function isHashedAsset(url) {
+  return new URL(url).pathname.startsWith('/assets/');
+}
+
 function networkError(status, message) {
   return new Response(JSON.stringify({ error: message }), {
     status,
@@ -26,33 +43,7 @@ function networkError(status, message) {
   });
 }
 
+// ── Lifecycle ────────────────────────────────────────────────────────────────
+
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(PRECACHE_URLS))
-  );
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
-  );
-  self.clients.claim();
-});
-
-self.addEventListener('fetch', event => {
-  // API requests — always network, never cache.
-  // Catch network failures so event.respondWith never receives a rejected promise.
-  if (isApiRequest(event.request.url)) {
-    event.respondWith(
-      fetch(event.request).catch(() =>
-        networkError(503, 'Backend unreachable. Please check the server is running.')
-      )
-    );
-    return;
-  }
-
-  // All other requests — cache-first, network fallback.
-  // IMPORTANT: d
+  eve
