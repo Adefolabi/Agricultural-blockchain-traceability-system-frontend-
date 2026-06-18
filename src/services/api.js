@@ -109,9 +109,6 @@ async function request(path, options = {}) {
 
   const headers = {
     'Content-Type': 'application/json',
-    // Bypass the ngrok browser-warning interstitial when the backend is
-    // exposed via an ngrok tunnel (ignored by all other hosts).
-    'ngrok-skip-browser-warning': 'true',
     ...(options.headers || {}),
   };
 
@@ -274,3 +271,4 @@ export const api = {
     return data; // { sensorDataHash, batch }
   },
 };
+                                                                                                                                                                                    
